@@ -44,7 +44,7 @@ class GnuCash:
         if to_date is not None:
             query = query.filter(Transaction.post_date <= to_date)
 
-        for row in query.order_by(Transaction.post_date.asc()).all():
+        for row in query.order_by(Transaction.post_date.desc()).all():
             yield row[-1], *row[:-1]
 
 
@@ -73,7 +73,7 @@ def parse_santander_csv(fn):
         for line in reader:
             if len(line) == 9 and DMY_pattern.match(line[0]):
                 yield (
-                    datetime.date(*map(int, line[1].split('-'))),
+                    datetime.date(*map(int, reversed(line[1].split('-')))),
                     Decimal(line[5].replace(',', '.')),
                     line[2].strip()
                 )
@@ -93,8 +93,6 @@ def parse_ing_csv(fn):
 
 if __name__ == '__main__':
 
-    messages = []
-
     with open(__file__.replace('.py', '.yml')) as cfg_file:
         configuration = YAML().load(cfg_file)
 
@@ -113,6 +111,7 @@ if __name__ == '__main__':
         for in_file in glob(pattern):
             cfg = configuration['importers'][get_iban_from_file(in_file)]
 
+            messages = []
             transactions = defaultdict(list)
 
             for date, amount, description in parser[cfg['format']](in_file):
@@ -147,7 +146,7 @@ if __name__ == '__main__':
                 for description in descriptions:
                     messages.append((date, amount, description, 'CSV FILE', Style.BRIGHT))
 
-    print(tabulate.tabulate([
-        (color+str(date), amount, description[:140], status+Style.RESET_ALL)
-        for date, amount, description, status, color in sorted(messages)
-    ], headers=('Date', 'Amount', 'Description', 'Status')))
+            print(tabulate.tabulate([
+                (color+str(date), amount, description[:140], status+Style.RESET_ALL)
+                for date, amount, description, status, color in sorted(messages)
+            ], headers=('Date', 'Amount', 'Description', 'Status')))
