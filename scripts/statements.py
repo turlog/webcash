@@ -115,7 +115,8 @@ if __name__ == '__main__':
             transactions = defaultdict(list)
 
             for date, amount, description in parser[cfg['format']](in_file):
-                transactions[(date, f'{amount:.2f}')].append(description)
+                if '(mDM)' not in description:
+                    transactions[(date, f'{amount:.2f}')].append(description)
 
             for (date, amount), descriptions in transactions.items():
                 if len(descriptions) > 1:
