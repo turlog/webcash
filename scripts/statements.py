@@ -4,6 +4,8 @@ import csv
 import datetime
 import tabulate
 
+import click
+
 from ruamel.yaml import YAML
 from colorama import Fore, Style
 
@@ -15,7 +17,6 @@ from functools import cached_property, lru_cache
 from piecash import open_book
 from piecash import Transaction, Split
 
-epsilon = 7
 YMD_pattern = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
 DMY_pattern = re.compile(r'[0-9]{2}-[0-9]{2}-[0-9]{4}')
 iban_pattern = re.compile(r'[0-9]{2} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4}')
@@ -91,10 +92,12 @@ def parse_ing_csv(fn):
                 )
 
 
-if __name__ == '__main__':
-
-    with open(__file__.replace('.py', '.yml')) as cfg_file:
-        configuration = YAML().load(cfg_file)
+@click.command()
+@click.option('--configuration', '-c', type=click.File(), required=True)
+@click.argument('statements', nargs=-1)
+def cli(configuration, statements):
+    configuration = YAML().load(configuration)
+    epsilon = configuration.get('options', {}).get('epsilon', 7)
 
     connections = {
         name: GnuCash(uri) for name, uri
@@ -107,7 +110,7 @@ if __name__ == '__main__':
         'ING': parse_ing_csv
     }
 
-    for pattern in sys.argv[1:]:
+    for pattern in statements:
         for in_file in glob(pattern):
             cfg = configuration['importers'][get_iban_from_file(in_file)]
 
@@ -151,3 +154,9 @@ if __name__ == '__main__':
                 (color+str(date), amount, description[:140], status+Style.RESET_ALL)
                 for date, amount, description, status, color in sorted(messages)
             ], headers=('Date', 'Amount', 'Description', 'Status')))
+
+
+if __name__ == '__main__':
+
+    cli()
+
