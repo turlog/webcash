@@ -26,7 +26,8 @@ class BitBay:
     def request(self, method, endpoint, query=None):
         response = self.__session.request(
             method=method,
-            json=query or {},
+            json=None if method == 'GET' else (query or {}),
+            params=query if method == 'GET' else None,
             headers=self.auth_headers(query),
             url=f'https://api.bitbay.net/rest/{endpoint}'
         ).json()
