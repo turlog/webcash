@@ -3,7 +3,7 @@ import hmac
 import json
 from datetime import datetime
 
-import requests
+import aiohttp
 
 
 ## API VERSION 1.0.2
@@ -59,12 +59,21 @@ class BitBay:
     def __init__(self, key, secret):
         self.__key = key
         self.__secret = secret
-        self.__session = requests.Session()
+        self.__session = aiohttp.ClientSession()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close()
+
+    async def close(self):
+        await self.__session.close()
 
     def auth_headers(self, query=None):
         timestamp = str(int(datetime.now().timestamp()))
         message = self.__key + timestamp + (json.dumps(query) if query is not None else '')
-        signature = hmac.digest(self.__secret.encode('ascii'), message.encode('ascii'), 'sha512').hex()
+        signature = hmac.digest(self.__secret.encode('ascii'), message.encode('utf-8'), 'sha512').hex()
         return {
             'API-Key': self.__key,
             'API-Hash': signature,
@@ -72,26 +81,31 @@ class BitBay:
             'operation-id': str(uuid.uuid4())
         }
 
-    def request(self, method, endpoint, query=None):
-        response = self.__session.request(
-            method=method,
-            json=None if method == 'GET' else (query or {}),
-            params=query if method == 'GET' else None,
-            headers=self.auth_headers(query),
-            url=f'https://api.bitbay.net/rest/{endpoint}'
-        ).json()
-        if response.get('status') == 'Ok':
-            return response
+    async def request(self, method, endpoint, query=None):
+        kwargs = {}
+        if method in ['POST', 'PUT']:
+            kwargs['headers'] = self.auth_headers(query)
+            kwargs['json'] = query or {}
         else:
-            raise ValueError(response.pop('errors', ['UNKNOWN_ERROR']))
+            kwargs['headers'] = self.auth_headers(None)
+            kwargs['params'] = json.dumps(query)
+        async with self.__session.request(method, f'https://api.bitbay.net/rest/{endpoint}', **kwargs) as response:
+            payload = await response.json()
+            if payload.get('status') == 'Ok':
+                return payload
+            else:
+                raise ValueError(payload.pop('errors', ['UNKNOWN_ERROR']))
 
-    def collection(self, method, endpoint, query=None):
+    async def collection(self, method, endpoint, query=None):
+        items = []
         query = query or {}
         query['nextPageCursor'] = 'start'
 
         while True:
-            response = self.request(method, endpoint, query)
-            yield from response['items']
+            response = await self.request(method, endpoint, query)
+            items.extend(response['items'])
             if query.get('nextPageCursor') == response.get('nextPageCursor'):
                 break
             query['nextPageCursor'] = response['nextPageCursor']
+
+        return items
