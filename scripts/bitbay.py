@@ -2,7 +2,56 @@ import uuid
 import hmac
 import json
 from datetime import datetime
+
 import requests
+
+
+## API VERSION 1.0.2
+
+# PUBLIC GET trading/ticker/{trading_pair}
+# PUBLIC SUBSCRIBE trading/ticker/{trading_pair}
+# PUBLIC GET trading/stats/{trading_pair}
+# PUBLIC SUBSCRIBE trading/stats/{trading_pair}
+# PUBLIC GET trading/orderbook/{trading_pair}
+# PUBLIC SUBSCRIBE trading/orderbook/{trading_pair}
+# PUBLIC GET trading/orderbook-limited/{trading_pair}/{limit}
+# PUBLIC SUBSCRIBE trading/orderbook-limited/{trading_pair}/{limit}
+# PUBLIC GET trading/transactions/{trading_pair} (limit, fromTime)
+# PUBLIC SUBSCRIBE trading/transactions/{trading_pair} (limit, fromTime)
+# PUBLIC GET trading/candle/history/{trading_pair}/{resolution} (from, to)
+
+# PRIVATE GET trading/offer/{trading_pair}
+# PRIVATE SUBSCRIBE trading/offers/{market_code}
+# PRIVATE POST trading/offer/{trading_pair} (amount, rate, price, offerType, mode, postOnly, fillOrKill, immediateOrCancel, firstBalanceId, secondBalanceId)
+# PRIVATE DELETE trading/offer/{trading_pair}/{offer_id}/{offer_type}/{price}
+
+# PRIVATE GET trading/config/{trading_pair}
+# PRIVATE POST trading/config/{trading_pair} (first, second)
+
+# PRIVATE GET trading/stop/offer/{market_code}
+# PRIVATE SUBSCRIBE trading/stop/offers/{market_code}
+# PRIVATE POST trading/stop/offer/{market_code} (offerType, amount, stopRate, mode, rate, balances, ignoreInvalidStopRate)
+# PRIVATE DELETE trading/stop/offer/{market_code}/{offer_id}
+
+# PRIVATE GET trading/history/transactions (markets, rateFrom, rateTo fromTime, toTime, userAction, nextPageCursor)
+# PRIVATE SUBSCRIBE trading/history/transactions/{market_code} (markets, rateFrom, rateTo, fromTime, toTime, userAction, nexPageCursor)
+
+# PRIVATE GET balances/BITBAY/history (balancesId, balanceCurrencies, fromTime, toTime, fromValue, toValue, balanceTypes, types, sort)
+# PRIVATE SUBSCRIBE balances/bitbay/history (balancesId, balanceCurrencies, fromTime, toTime, fromValue, toValue, balanceTypes, types, sort)
+
+# PRIVATE GET balances/BITBAY/balance
+# PRIVATE SUBSCRIBE balances/balance/bitbay/updatefunds
+# PRIVATE POST balances/BITBAY/balance (currency, type, name)
+# PRIVATE PUT balances/BITBAY/balance/{wallet_id} (name)
+# PRIVATE POST balances/BITBAY/balance/transfer/{source_id}/{destination_id} (currency, funds)
+
+# PRIVATE GET cantor_service/rates/{currency_source}/{target_currency}
+# PUBLIC SUBSCRIBE cantor_service/rates/{currency_source}/{target_currency}
+# PRIVATE GET cantor_service/rates/{currency_source}/{target_currency}/{quantity}
+# PRIVATE POST cantor_service/exchanges (sourceBalanceId, targetBalanceId, sourceCurrency, targetCurrency, amount, rate)
+# PRIVATE GET cantor_service/history (page, size, sort, fromTime, toTime, markets, statuses)
+# PRIVATE GET cantor_service/markets
+# PRIVATE SUBSCRIBE cantor_service/exchanges/status
 
 
 class BitBay:
