@@ -81,31 +81,33 @@ class BitBay:
             'operation-id': str(uuid.uuid4())
         }
 
-    async def request(self, method, endpoint, query=None):
-        kwargs = {}
-        if method in ['POST', 'PUT']:
-            kwargs['headers'] = self.auth_headers(query)
-            kwargs['json'] = query or {}
-        else:
-            kwargs['headers'] = self.auth_headers(None)
-            kwargs['params'] = json.dumps(query)
-        async with self.__session.request(method, f'https://api.bitbay.net/rest/{endpoint}', **kwargs) as response:
-            payload = await response.json()
-            if payload.get('status') == 'Ok':
-                return payload
-            else:
-                raise ValueError(payload.pop('errors', ['UNKNOWN_ERROR']))
-
-    async def collection(self, method, endpoint, query=None):
-        items = []
+    async def rest(self, method, endpoint, query=None, paginated=False):
         query = query or {}
-        query['nextPageCursor'] = 'start'
+        items = []
+
+        kwargs = {
+            'method': method,
+            'url': f'https://api.bitbay.net/rest/{endpoint}'
+        }
+
+        if paginated:
+            query['nextPageCursor'] = 'start'
+
+        if method in ['POST', 'PUT']:
+            kwargs['json'] = query
+        else:
+            kwargs['params'] = json.dumps(query)
 
         while True:
-            response = await self.request(method, endpoint, query)
-            items.extend(response['items'])
-            if query.get('nextPageCursor') == response.get('nextPageCursor'):
-                break
-            query['nextPageCursor'] = response['nextPageCursor']
-
+            async with self.__session.request(headers=self.auth_headers(query), **kwargs) as response:
+                payload = await response.json()
+                if payload.get('status') == 'Ok':
+                    if not paginated:
+                        return payload
+                    items.extend(payload['items'])
+                    if query.get('nextPageCursor') == payload.get('nextPageCursor'):
+                        break
+                    query['nextPageCursor'] = payload['nextPageCursor']
+                else:
+                    raise ValueError(payload.pop('errors', ['UNKNOWN_ERROR']))
         return items

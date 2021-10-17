@@ -19,11 +19,11 @@ async def get_stats():
                 'rate': Decimal(ticker['rate']),
                 'format': f"16.{ticker['market']['first']['scale']}f"
             } for market, ticker
-            in (await api.request('GET', f'trading/ticker'))['items'].items()
+            in (await api.rest('GET', f'trading/ticker'))['items'].items()
             if market.endswith('-PLN')
         }
 
-        for transaction in reversed(await api.collection('POST', 'trading/history/transactions')):
+        for transaction in reversed(await api.rest('POST', 'trading/history/transactions', paginated=True)):
             target_currency, source_currency = transaction['market'].split('-', maxsplit=1)
             commission = Decimal(transaction['commissionValue'])
             amount = Decimal(transaction['amount'])
