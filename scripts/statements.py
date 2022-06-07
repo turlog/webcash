@@ -8,6 +8,9 @@ import click
 
 from ruamel.yaml import YAML
 from colorama import Fore, Style
+from furl import furl
+
+from getpass import getpass
 
 from glob import glob
 from decimal import Decimal
@@ -17,6 +20,7 @@ from functools import cached_property, lru_cache
 from piecash import open_book
 from piecash import Transaction, Split
 
+
 YMD_pattern = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
 DMY_pattern = re.compile(r'[0-9]{2}-[0-9]{2}-[0-9]{4}')
 iban_pattern = re.compile(r'[0-9]{2} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4}')
@@ -24,13 +28,14 @@ iban_pattern = re.compile(r'[0-9]{2} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0-9]{4} ?[0
 
 class GnuCash:
 
-    def __init__(self, uri):
+    def __init__(self, uri, read_only=True):
         self.uri = uri
+        self.read_only = read_only
 
     @cached_property
     def book(self):
         return open_book(
-            uri_conn=self.uri, readonly=True, open_if_lock=True, do_backup=False
+            uri_conn=self.uri, readonly=self.read_only, open_if_lock=True, do_backup=False
         )
 
     def transactions(self, account, from_date=None, to_date=None):
@@ -93,16 +98,23 @@ def parse_ing_csv(fn):
 
 
 @click.command()
-@click.option('--configuration', '-c', type=click.File(), required=True)
 @click.argument('statements', nargs=-1)
-def cli(configuration, statements):
+@click.option('--configuration', '-c', type=click.File(), required=True)
+@click.option('--elevate', '-e', is_flag=True, default=False)
+@click.option('--update', '-u', is_flag=True, default=False)
+def cli(statements, configuration, elevate, update):
     configuration = YAML().load(configuration)
     epsilon = configuration.get('options', {}).get('epsilon', 7)
 
-    connections = {
-        name: GnuCash(uri) for name, uri
-        in configuration.get('connections', {}).items()
-    }
+    username, password = (input('Username: '), getpass('Password: ')) if elevate else (None, None)
+
+    connections = {}
+
+    for name, uri in configuration.get('connections', {}).items():
+        uri = furl(uri)
+        if elevate:
+            uri.set(username=username, password=password)
+        connections[name] = GnuCash(uri.tostr(), read_only=not elevate)
 
     parser = {
         'mBank': parse_mbank_csv,
@@ -154,6 +166,30 @@ def cli(configuration, statements):
                 (color+str(date), amount, description[:140], status+Style.RESET_ALL)
                 for date, amount, description, status, color in sorted(messages)
             ], headers=('Date', 'Amount', 'Description', 'Status'), floatfmt=".2f"))
+
+            if update:
+                book = connections[cfg['connection']].book
+
+                for date, amount, description, status, color in sorted(messages):
+                    if status == 'CSV FILE':
+                        transaction = Transaction(
+                            currency=book.commodities(namespace='CURRENCY', mnemonic='PLN'),
+                            description=description,
+                            post_date=date,
+                            splits=[
+                                Split(
+                                    account=book.accounts(name=cfg['account']),
+                                    value=Decimal(amount)
+                                ),
+                                Split(
+                                    account=book.accounts(name=cfg['update']),
+                                    value=-Decimal(amount)
+                                ),
+                            ]
+                        )
+                        book.session.add(transaction)
+                book.flush()
+                book.save()
 
 
 if __name__ == '__main__':
