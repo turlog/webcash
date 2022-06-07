@@ -153,7 +153,7 @@ def cli(configuration, statements):
             print(tabulate.tabulate([
                 (color+str(date), amount, description[:140], status+Style.RESET_ALL)
                 for date, amount, description, status, color in sorted(messages)
-            ], headers=('Date', 'Amount', 'Description', 'Status')))
+            ], headers=('Date', 'Amount', 'Description', 'Status'), floatfmt=".2f"))
 
 
 if __name__ == '__main__':
