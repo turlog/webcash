@@ -1,8 +1,10 @@
 import re
-import sys
 import csv
 import datetime
 import tabulate
+
+import chardet
+from io import StringIO
 
 import click
 
@@ -15,7 +17,7 @@ from getpass import getpass
 from glob import glob
 from decimal import Decimal
 from collections import defaultdict
-from functools import cached_property, lru_cache
+from functools import cached_property
 
 from piecash import open_book
 from piecash import Transaction, Split
@@ -61,8 +63,15 @@ def get_iban_from_file(fn):
         ).group(0).replace(' ', ''))
 
 
+def text(fn):
+
+    with open(fn, 'rb') as stream:
+        buffer = stream.read()
+        return StringIO(buffer.decode(chardet.detect(buffer)['encoding']))
+
+
 def parse_mbank_csv(fn):
-    with open(fn, 'r', encoding='windows-1250') as infile:
+    with text(fn) as infile:
         reader = csv.reader(infile, delimiter=';')
         for line in reader:
             if len(line) == 7 and YMD_pattern.match(line[0]):
@@ -74,7 +83,7 @@ def parse_mbank_csv(fn):
 
 
 def parse_santander_csv(fn):
-    with open(fn, 'rt', encoding='utf-8') as infile:
+    with text(fn) as infile:
         reader = csv.reader(infile, delimiter=',')
         for line in reader:
             if len(line) == 9 and DMY_pattern.match(line[0]):
@@ -86,7 +95,7 @@ def parse_santander_csv(fn):
 
 
 def parse_ing_csv(fn):
-    with open(fn, 'rt', encoding='windows-1250') as infile:
+    with text(fn) as infile:
         reader = csv.reader(infile, delimiter=';')
         for line in reader:
             if len(line) == 21 and YMD_pattern.match(line[0]):
