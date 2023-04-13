@@ -12,6 +12,7 @@ setup(
         'furl',
         'ruamel.yaml',
         'piecash',
+        'lxml',
     ],
     entry_points={
         'console_scripts': [

@@ -9,6 +9,8 @@ from io import StringIO
 import click
 
 from ruamel.yaml import YAML
+from lxml import etree
+
 from colorama import Fore, Style
 from furl import furl
 
@@ -105,10 +107,19 @@ def parse_ing_csv(fn):
                     line[2].strip() + ' ' + line[3].strip()
                 )
 
+def parse_toyota_xml(fn):
+    with open(fn, 'rb') as infile:
+        for operacja in etree.parse(infile).getroot().findall('.//operacja'):
+            operacja = {child.tag: child.text for child in operacja.getchildren()}
+            yield (
+                datetime.date(*map(int, operacja['data_ksiegowa'].split('-'))),
+                (+1 if operacja['strona'] == 'MA' else -1) * Decimal(operacja['kwota']),
+                operacja['tresc1']
+            )
 
 @click.command()
 @click.argument('statements', nargs=-1)
-@click.option('--configuration', '-c', type=click.File(), required=True)
+@click.option('--configuration', '-c', type=click.File(encoding='utf-8'), required=True)
 @click.option('--elevate', '-e', is_flag=True, default=False)
 @click.option('--update', '-u', is_flag=True, default=False)
 def cli(statements, configuration, elevate, update):
@@ -128,7 +139,8 @@ def cli(statements, configuration, elevate, update):
     parser = {
         'mBank': parse_mbank_csv,
         'Santander': parse_santander_csv,
-        'ING': parse_ing_csv
+        'ING': parse_ing_csv,
+        'Toyota': parse_toyota_xml,
     }
 
     for pattern in statements:
@@ -169,7 +181,7 @@ def cli(statements, configuration, elevate, update):
 
             for (date, amount), descriptions in transactions.items():
                 for description in descriptions:
-                    messages.append((date, amount, description, 'CSV FILE', Style.BRIGHT))
+                    messages.append((date, amount, description, 'EXPORT', Style.BRIGHT))
 
             print(tabulate.tabulate([
                 (color+str(date), amount, description[:140], status+Style.RESET_ALL)
@@ -180,7 +192,7 @@ def cli(statements, configuration, elevate, update):
                 book = connections[cfg['connection']].book
 
                 for date, amount, description, status, color in sorted(messages):
-                    if status == 'CSV FILE':
+                    if status == 'EXPORT':
                         transaction = Transaction(
                             currency=book.commodities(namespace='CURRENCY', mnemonic='PLN'),
                             description=description,
