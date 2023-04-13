@@ -45,7 +45,7 @@ class GnuCash:
     def transactions(self, account, from_date=None, to_date=None):
 
         query = self.book.session.query(Split.quantity).join(Transaction).filter(
-            Split.account == self.book.accounts(name=account)
+            Split.account == self.book.accounts(fullname=account)
         ).add_columns(Transaction.description, Transaction.post_date)
 
         if from_date is not None:
@@ -199,11 +199,11 @@ def cli(statements, configuration, elevate, update):
                             post_date=date,
                             splits=[
                                 Split(
-                                    account=book.accounts(name=cfg['account']),
+                                    account=book.accounts(fullname=cfg['account']),
                                     value=Decimal(amount)
                                 ),
                                 Split(
-                                    account=book.accounts(name=cfg['update']),
+                                    account=book.accounts(fullname=cfg['update']),
                                     value=-Decimal(amount)
                                 ),
                             ]
