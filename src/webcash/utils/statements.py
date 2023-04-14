@@ -107,6 +107,19 @@ def parse_ing_csv(fn):
                     line[2].strip() + ' ' + line[3].strip()
                 )
 
+
+def parse_nest_csv(fn):
+    with text(fn) as infile:
+        reader = csv.reader(infile, delimiter=',')
+        for line in reader:
+            if len(line) > 9 and DMY_pattern.match(line[0]):
+                yield(
+                    datetime.date(*map(int, reversed(line[0].split('-')))),
+                    Decimal(line[3]),
+                    line[7]
+                )
+
+
 def parse_toyota_xml(fn):
     with open(fn, 'rb') as infile:
         for operacja in etree.parse(infile).getroot().findall('.//operacja'):
@@ -141,6 +154,7 @@ def cli(statements, configuration, elevate, update):
         'Santander': parse_santander_csv,
         'ING': parse_ing_csv,
         'Toyota': parse_toyota_xml,
+        'Nest': parse_nest_csv,
     }
 
     for pattern in statements:
