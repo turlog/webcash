@@ -58,7 +58,7 @@ class GnuCash:
             yield row[-1], *row[:-1]
 
 
-def get_iban_from_file(fn):
+def detect_importer_from_file(fn):
     with open(fn, 'rb') as buffer:
         return int(iban_pattern.search(
             buffer.read(1024).decode('ascii', errors='ignore')
@@ -135,7 +135,8 @@ def parse_toyota_xml(fn):
 @click.option('--configuration', '-c', type=click.File(encoding='utf-8'), required=True)
 @click.option('--elevate', '-e', is_flag=True, default=False)
 @click.option('--update', '-u', is_flag=True, default=False)
-def cli(statements, configuration, elevate, update):
+@click.option('--target', '-i')
+def cli(statements, configuration, elevate, update, target):
     configuration = YAML().load(configuration)
     epsilon = configuration.get('options', {}).get('epsilon', 7)
 
@@ -159,7 +160,8 @@ def cli(statements, configuration, elevate, update):
 
     for pattern in statements:
         for in_file in glob(pattern):
-            cfg = configuration['importers'][get_iban_from_file(in_file)]
+            target = target or detect_importer_from_file(in_file)
+            cfg = configuration['importers'][target]
 
             messages = []
             transactions = defaultdict(list)
