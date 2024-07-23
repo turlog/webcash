@@ -1,10 +1,10 @@
 import uuid
 import hmac
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiohttp
-
+import websockets
 
 ## API VERSION 1.0.2
 
@@ -62,16 +62,41 @@ class BitBay:
         self.__session = aiohttp.ClientSession()
 
     async def __aenter__(self):
+        self.__ws = await websockets.connect('wss://api.zonda.exchange/websocket/')
         return self
 
     async def __aexit__(self, *args):
         await self.close()
 
     async def close(self):
+        await self.__ws.close()
         await self.__session.close()
 
+    def auth_params(self):
+        timestamp = str(int((datetime.now()-timedelta(hours=1)).timestamp()))
+        message = self.__key + timestamp
+        signature = hmac.digest(self.__secret.encode('ascii'), message.encode('utf-8'), 'sha512').hex()
+        return {
+            "hashSignature": signature,
+            "publicKey": self.__key,
+            "requestTimestamp": timestamp
+        }
+
+    async def send(self, action, endpoint, query=None):
+        module, path = endpoint.split('/', maxsplit=1)
+        await self.__ws.send(json.dumps({
+            'action': action,
+            'module': module,
+            'path': path,
+            **(query or {}),
+            **self.auth_params()
+        }))
+
+    async def recv(self):
+        return await self.__ws.recv()
+
     def auth_headers(self, query=None):
-        timestamp = str(int(datetime.now().timestamp()))
+        timestamp = str(int((datetime.now()+timedelta(hours=1)).timestamp()))
         message = self.__key + timestamp + (json.dumps(query) if query is not None else '')
         signature = hmac.digest(self.__secret.encode('ascii'), message.encode('utf-8'), 'sha512').hex()
         return {
@@ -87,7 +112,7 @@ class BitBay:
 
         kwargs = {
             'method': method,
-            'url': f'https://api.bitbay.net/rest/{endpoint}'
+            'url': f'https://api.zonda.exchange/rest/{endpoint}'
         }
 
         if paginated:
@@ -111,3 +136,20 @@ class BitBay:
                 else:
                     raise ValueError(payload.pop('errors', ['UNKNOWN_ERROR']))
         return items
+
+
+if __name__ == '__main__':
+
+    import os
+    import asyncio
+
+    async def example():
+        async with BitBay(os.environ.get('BITBAY_API_KEY'), os.environ.get('BITBAY_SECRET')) as api:
+            print(await api.rest('GET', 'trading/ticker/BTC-PLN'))
+            await api.send('subscribe-public', 'trading/ticker/BTC-PLN')
+            print(await api.recv())
+            # print(await api.recv())
+            await api.send('unsubscribe', 'trading/ticker/BTC-PLN')
+            print(await api.recv())
+
+    asyncio.run(example())
