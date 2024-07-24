@@ -240,14 +240,14 @@ def cli(statements, configuration, elevate, update, target):
 
             for (date, amount, currency), descriptions in transactions.items():
                 if len(descriptions) > 1:
-                    for description in descriptions:
+                    for n, description in enumerate(descriptions):
                         messages.append(
                             (
                                 date,
                                 amount,
                                 currency,
                                 description,
-                                "DUPLICATE",
+                                f"DUPLICATE #{len(descriptions)-n}",
                                 Style.DIM,
                             )
                         )
